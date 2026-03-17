@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-from models import get_arima_forecast # Подключили нашу математику!
+from models import get_arima_forecast
 
 # Настройки страницы
 st.set_page_config(page_title="Аналитический Центр", layout="wide")
@@ -71,4 +71,10 @@ with col1:
         st.metric(label="ARIMA (Статистика)", value="Нет данных", delta="0%")
 
 with col2:
-    st.metric(label
+    st.metric(label="XGBoost (Машинное обучение)", value="Ожидает", delta="0.0%", delta_color="off")
+with col3:
+    st.metric(label="LSTM (Нейросеть)", value="Ожидает", delta="0.0%", delta_color="off")
+
+# 5. Итоговый сигнал
+st.subheader("⚡ Сводный прогноз для демо-счета")
+st.warning(f"Рейтинг доверия: 33%. Включена только статистика. Прогноз на {forecast_steps} {step_name} вперед. Рекомендация: Ожидаем данных от всех алгоритмов.")
