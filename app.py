@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+from models import get_arima_forecast
 
 # Настройки страницы
 st.set_page_config(page_title="Аналитический Центр", layout="wide")
@@ -64,7 +65,10 @@ st.subheader("🤖 Консилиум алгоритмов (Демо-режим)
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric(label="ARIMA (Статистика)", value="Рост", delta="+1.2%")
+    # Запускаем расчет ARIMA в реальном времени!
+    arima_direction, arima_delta = get_arima_forecast(data, forecast_steps)
+    st.metric(label="ARIMA (Статистика)", value=arima_direction, delta=f"{arima_delta}%")
+
 with col2:
     st.metric(label="XGBoost (Машинное обучение)", value="Боковик", delta="0.0%", delta_color="off")
 with col3:
