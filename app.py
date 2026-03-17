@@ -5,7 +5,7 @@ from models import get_arima_forecast
 
 # Настройки страницы
 st.set_page_config(page_title="Аналитический Центр", layout="wide")
-st.title("📊 Панель управления (Внутридневная аналитика)")
+st.title("Панель управления (Внутридневная аналитика)")
 
 # 1. Боковая панель (Управление)
 st.sidebar.header("Параметры анализа")
@@ -43,10 +43,10 @@ def load_data(ticker, time_interval, data_period):
 data = load_data(asset, interval, period)
 
 # 3. Главный экран: График
-st.subheader(f"📈 Исторический график: {asset} (Интервал: {timeframe_label})")
+st.subheader(f"Исторический график: {asset} (Интервал: {timeframe_label})")
 
 if data.empty:
-    st.error("⚠️ Не удалось загрузить данные. Возможно, биржа закрыта или актив не поддерживает этот таймфрейм.")
+    st.error("Не удалось загрузить данные. Возможно, биржа закрыта или актив не поддерживает этот таймфрейм.")
 else:
     chart_data = pd.DataFrame()
     chart_data['Цена'] = data['Close']
@@ -76,5 +76,5 @@ with col3:
     st.metric(label="LSTM (Нейросеть)", value="Ожидает", delta="0.0%", delta_color="off")
 
 # 5. Итоговый сигнал
-st.subheader("⚡ Сводный прогноз для демо-счета")
+st.subheader("Сводный прогноз для демо-счета")
 st.warning(f"Рейтинг доверия: 33%. Включена только статистика. Прогноз на {forecast_steps} {step_name} вперед. Рекомендация: Ожидаем данных от всех алгоритмов.")
