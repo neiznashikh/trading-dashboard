@@ -59,7 +59,7 @@ else:
     st.line_chart(chart_data)
 
 # 4. Блок "Консилиум алгоритмов"
-st.subheader("🤖 Консилиум алгоритмов")
+st.subheader("Консилиум алгоритмов")
 col1, col2, col3 = st.columns(3)
 
 with col1:
