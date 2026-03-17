@@ -1,112 +1,78 @@
-import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
-# Подключаем ТЕПЕРЬ ДВЕ модели из нашего математического файла!
-from models import get_arima_forecast, get_xgboost_forecast 
+from statsmodels.tsa.arima.model import ARIMA
+from xgboost import XGBRegressor
+from sklearn.model_selection import train_test_split
+import warnings
 
-# Настройки страницы
-st.set_page_config(page_title="Аналитический Центр", layout="wide")
-st.title("📊 Панель управления (Внутридневная аналитика)")
+warnings.filterwarnings("ignore")
 
-# 1. Боковая панель (Управление)
-st.sidebar.header("Параметры анализа")
-asset = st.sidebar.selectbox("Выберите актив:", ["BTC-USD", "SPY", "GC=F"])
-
-timeframe_label = st.sidebar.selectbox("Таймфрейм (размер свечи):", ["1 час", "1 день"])
-
-if timeframe_label == "1 час":
-    interval = "1h"
-    period = "6mo" 
-    step_name = "часов"
-else:
-    interval = "1d"
-    period = "1y" 
-    step_name = "дней"
-
-# Тот самый ползунок, который теперь будет управлять графиком будущего
-forecast_steps = st.sidebar.slider(f"Горизонт прогноза (вперед на X {step_name}):", 1, 10, 1)
-
-st.sidebar.subheader("Технические индикаторы")
-show_sma20 = st.sidebar.checkbox("Показать SMA 20 (Быстрый тренд)")
-show_sma50 = st.sidebar.checkbox("Показать SMA 50 (Медленный тренд)")
-
-# 2. Надежная загрузка данных
-@st.cache_data
-def load_data(ticker, time_interval, data_period):
-    stock = yf.Ticker(ticker)
-    data = stock.history(period=data_period, interval=time_interval)
-    return data
-
-data = load_data(asset, interval, period)
-
-# 3. Главный экран: График истории
-st.subheader(f"📈 Исторический график: {asset} (Интервал: {timeframe_label})")
-
-if data.empty:
-    st.error("⚠️ Не удалось загрузить данные.")
-else:
-    chart_data = pd.DataFrame()
-    chart_data['Цена'] = data['Close']
-    
-    if show_sma20:
-        chart_data['SMA 20'] = data['Close'].rolling(window=20).mean()
-    if show_sma50:
-        chart_data['SMA 50'] = data['Close'].rolling(window=50).mean()
-
-    st.line_chart(chart_data)
-
-# 4. Блок "Консилиум алгоритмов"
-st.subheader("🤖 Консилиум алгоритмов")
-col1, col2, col3 = st.columns(3)
-
-# Переменные для графика будущего
-arima_delta = 0.0
-xgb_delta = 0.0
-
-with col1:
-    if not data.empty:
-        arima_direction, arima_delta = get_arima_forecast(data, forecast_steps)
-        st.metric(label="ARIMA (Статистика)", value=arima_direction, delta=f"{arima_delta}%")
-
-with col2:
-    if not data.empty:
-        xgb_direction, xgb_delta = get_xgboost_forecast(data, forecast_steps)
-        st.metric(label="XGBoost (Машинное обучение)", value=xgb_direction, delta=f"{xgb_delta}%")
-
-with col3:
-    st.metric(label="LSTM (Нейросеть)", value="Ожидает", delta="0.0%", delta_color="off")
-
-# --- НОВЫЙ БЛОК: ГРАФИК БУДУЩЕГО ---
-if not data.empty:
-    st.subheader("🎯 График прогноза (Куда целятся алгоритмы)")
-    
-    last_price = data['Close'].iloc[-1]
-    last_date = data.index[-1]
-    
-    # Вычисляем дату/время в будущем на основе вашего ползунка
-    if timeframe_label == "1 час":
-        future_date = last_date + pd.Timedelta(hours=forecast_steps)
-    else:
-        future_date = last_date + pd.Timedelta(days=forecast_steps)
+def get_arima_forecast(data, steps):
+    try:
+        series = data['Close'].dropna()
+        model = ARIMA(series, order=(1, 1, 1))
+        fitted_model = model.fit()
+        forecast = fitted_model.forecast(steps=steps)
         
-    # Высчитываем будущую цену в долларах
-    arima_future_price = last_price * (1 + (arima_delta / 100))
-    xgb_future_price = last_price * (1 + (xgb_delta / 100))
-    
-    # Берем последние 30 точек истории, чтобы график был крупным и понятным
-    plot_df = pd.DataFrame({'Реальная цена': data['Close'].tail(30)})
-    
-    # Добавляем точку будущего в таблицу
-    plot_df.loc[future_date, 'Реальная цена'] = None 
-    
-    # Рисуем линию ARIMA от сегодня в будущее
-    plot_df.loc[last_date, 'Прогноз ARIMA'] = last_price
-    plot_df.loc[future_date, 'Прогноз ARIMA'] = arima_future_price
-    
-    # Рисуем линию XGBoost от сегодня в будущее
-    plot_df.loc[last_date, 'Прогноз XGBoost'] = last_price
-    plot_df.loc[future_date, 'Прогноз XGBoost'] = xgb_future_price
-    
-    # Выводим красивый график с тремя линиями
-    st.line_chart(plot_df)
+        last_price = series.iloc[-1]
+        predicted_price = forecast.iloc[-1]
+        delta_pct = ((predicted_price - last_price) / last_price) * 100
+        
+        if delta_pct > 0.1: direction = "Рост"
+        elif delta_pct < -0.1: direction = "Спад"
+        else: direction = "Боковик"
+            
+        return direction, round(delta_pct, 2)
+    except Exception as e:
+        return "Ошибка", 0.0
+
+# --- НОВЫЙ БЛОК МАШИННОГО ОБУЧЕНИЯ (XGBOOST) ---
+def get_xgboost_forecast(data, steps):
+    try:
+        df = data.copy()
+        
+        # 1. Создаем "Фичи" (Features) - метрики для обучения алгоритма
+        df['SMA_10'] = df['Close'].rolling(window=10).mean()
+        df['SMA_30'] = df['Close'].rolling(window=30).mean()
+        # Считаем процент изменения цены за прошлый день/час
+        df['Returns'] = df['Close'].pct_change()
+        
+        # 2. Создаем "Таргет" (Target) - то, что алгоритм должен угадать (цену через 'steps' шагов)
+        df['Target'] = df['Close'].shift(-steps)
+        
+        # Убираем строки с пустыми значениями
+        df.dropna(inplace=True)
+        
+        # Если данных мало (например, биржа только открылась), алгоритм не сработает
+        if len(df) < 50:
+            return "Мало данных", 0.0
+            
+        # 3. Подготавливаем данные для обучения
+        features = ['Close', 'Volume', 'SMA_10', 'SMA_30', 'Returns']
+        X = df[features]
+        y = df['Target']
+        
+        # 4. Создаем и обучаем модель (учим ее находить закономерности)
+        model = XGBRegressor(objective='reg:squarederror', n_estimators=100, max_depth=3, learning_rate=0.1)
+        model.fit(X, y)
+        
+        # 5. Делаем прогноз на основе САМЫХ ПОСЛЕДНИХ данных с биржи
+        last_known_data = pd.DataFrame([data.iloc[-1][features].values], columns=features)
+        
+        # Защита от пустых метрик в последней строке (если SMA еще не рассчиталась)
+        if last_known_data.isnull().values.any():
+            return "Ошибка", 0.0
+            
+        predicted_price = model.predict(last_known_data)[0]
+        last_price = data['Close'].iloc[-1]
+        
+        delta_pct = ((predicted_price - last_price) / last_price) * 100
+        
+        if delta_pct > 0.1: direction = "Рост"
+        elif delta_pct < -0.1: direction = "Спад"
+        else: direction = "Боковик"
+            
+        return direction, round(delta_pct, 2)
+        
+    except Exception as e:
+        return "Ошибка", 0.0
