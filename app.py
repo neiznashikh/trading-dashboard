@@ -1,7 +1,5 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
-from datetime import date, timedelta
 
 # Настройки страницы
 st.set_page_config(page_title="Аналитический Центр", layout="wide")
@@ -14,21 +12,26 @@ days_ahead = st.sidebar.slider("Горизонт прогноза (дней):", 
 
 st.sidebar.info("BTC-USD: Биткоин\n\nSPY: Индекс S&P 500\n\nGC=F: Золото")
 
-# 2. Загрузка реальных данных
+# 2. Надежная загрузка данных
 @st.cache_data
 def load_data(ticker):
-    end_date = date.today()
-    start_date = end_date - timedelta(days=365) # Берем данные за год
-    data = yf.download(ticker, start=start_date, end=end_date)
+    # Используем более стабильный метод получения истории за 1 год
+    stock = yf.Ticker(ticker)
+    data = stock.history(period="1y")
     return data
 
 data = load_data(asset)
 
 # 3. Главный экран: График
 st.subheader(f"📈 Исторический график: {asset} (Цена закрытия)")
-st.line_chart(data['Close'])
 
-# 4. Блок "Консилиум алгоритмов" (Пока в режиме интерфейса)
+# Защита от пустых данных: проверяем, что биржа отдала цифры
+if data.empty:
+    st.error("⚠️ Не удалось загрузить данные. Возможно, временный сбой соединения с биржей.")
+else:
+    st.line_chart(data['Close'])
+
+# 4. Блок "Консилиум алгоритмов"
 st.subheader("🤖 Консилиум алгоритмов (Демо-режим)")
 col1, col2, col3 = st.columns(3)
 
